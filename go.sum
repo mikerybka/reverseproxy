@@ -1,0 +1,17 @@
+github.com/library-development/go-english v0.0.0-20230118225749-8397028d3860 h1:Plu6UKuuxkizJJnqx559X0rgbMMrZeCenoCixL3vfFo=
+github.com/library-development/go-english v0.0.0-20230118225749-8397028d3860/go.mod h1:FGbvaIhMjrmao60Dx4o3cwJQdU6AtzSu4MrGYAGkXxs=
+github.com/library-development/go-golang v0.0.0-20230118230940-10236c86008a h1:zbBtNC6ehwpwbS52XB0bggljro1FjJs92+O4+CHhw/w=
+github.com/library-development/go-golang v0.0.0-20230118230940-10236c86008a/go.mod h1:3iWdgIQ09klJFd5UAZ1Rv4NH3XBSeakhJCf4Ihk8O/U=
+github.com/library-development/go-nameconv v0.0.0-20230118230451-7e86b2bd3679 h1:kzOqntIqW2XSZDppHuban/Jg9cJKZZUfUSkmfazCFrE=
+github.com/library-development/go-nameconv v0.0.0-20230118230451-7e86b2bd3679/go.mod h1:kLR+/Mfh3XMZYMTj2q6DNDqcU/U7ZvsgMtumHjUcIyU=
+github.com/library-development/go-web v0.0.0-20230118234537-f713008c3c06 h1:NJNgA6Gd2VDCzlQ3swNsiWJxLVQ/rJMmWV/qAEhcaBU=
+github.com/library-development/go-web v0.0.0-20230118234537-f713008c3c06/go.mod h1:EVHliiojJbBfuAhnROm9zK7JFClp01Spi3D+TOGx0VU=
+github.com/oklog/ulid/v2 v2.1.0 h1:+9lhoxAP56we25tyYETBBY1YLA2SaoLvUFgrP2miPJU=
+github.com/oklog/ulid/v2 v2.1.0/go.mod h1:rcEKHmBBKfef9DhnvX7y1HZBYxjXb0cP5ExxNsTT1QQ=
+github.com/pborman/getopt v0.0.0-20170112200414-7148bc3a4c30/go.mod h1:85jBQOZwpVEaDAr341tbn15RS4fCAsIst0qp7i8ex1o=
+golang.org/x/crypto v0.5.0 h1:U/0M97KRkSFvyD/3FSmdP5W5swImpNgle/EHFhOsQPE=
+golang.org/x/crypto v0.5.0/go.mod h1:NK/OQwhpMQP3MwtdjgLlYHnH9ebylxKWv3e0fK+mkQU=
+golang.org/x/net v0.5.0 h1:GyT4nK/YDHSqa1c4753ouYCDajOYKTja9Xb/OHtgvSw=
+golang.org/x/net v0.5.0/go.mod h1:DivGGAXEgPSlEBzxGzZI+ZLohi+xUj054jfeKui00ws=
+golang.org/x/text v0.6.0 h1:3XmdazWV+ubf7QgHSTWeykHOci5oeekaGJBLkrkaw4k=
+golang.org/x/text v0.6.0/go.mod h1:mrYo+phRRbMaCq/xk9113O4dZlRixOauAjOtrjsXDZ8=
