@@ -5,12 +5,14 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/http/httputil"
 	"os"
+	"path/filepath"
+	"strconv"
 	"time"
 
-	"github.com/library-development/go-web"
 	"golang.org/x/crypto/acme/autocert"
 )
 
@@ -19,7 +21,7 @@ func main() {
 	configfile := "/etc/reverseproxy/config.json"
 	certdir := "/etc/ssl/certs"
 	logdir := "/var/log/reverseproxy"
-	email := "merybka@gmail.com"
+	email := os.Getenv("EMAIL")
 	h := &handler{
 		configfile: configfile,
 		logdir:     logdir,
@@ -69,7 +71,7 @@ func (h *handler) readConfig() error {
 }
 
 func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	web.LogRequest(r, h.logdir)
+	logRequest(r, h.logdir)
 	err := h.readConfig()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -87,4 +89,44 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 	proxy.ServeHTTP(w, r)
+}
+
+type RequestLog struct {
+	FromIP  string              `json:"from_ip"`
+	Method  string              `json:"method"`
+	Host    string              `json:"host"`
+	Path    string              `json:"path"`
+	Query   map[string][]string `json:"query"`
+	Headers map[string][]string `json:"headers"`
+	Body    []byte              `json:"body"`
+}
+
+func logRequest(r *http.Request, logdir string) error {
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		panic(err)
+	}
+	l := RequestLog{
+		FromIP:  r.RemoteAddr,
+		Method:  r.Method,
+		Host:    r.Host,
+		Path:    r.URL.Path,
+		Query:   r.URL.Query(),
+		Headers: r.Header,
+		Body:    body,
+	}
+	b, err := json.MarshalIndent(l, "", "  ")
+	if err != nil {
+		return err
+	}
+	timestamp := time.Now().UnixNano()
+	var logFile string
+	for {
+		logFile = filepath.Join(logdir, strconv.Itoa(int(timestamp)))
+		if _, err := os.Stat(logFile); os.IsNotExist(err) {
+			break
+		}
+		timestamp++
+	}
+	return os.WriteFile(logFile, b, os.ModePerm)
 }
