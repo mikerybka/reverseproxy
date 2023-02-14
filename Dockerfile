@@ -1,8 +1,4 @@
-FROM nixos/nix:latest
-
-RUN nix-channel --add https://nixos.org/channels/nixpkgs-unstable nixpkgs
-RUN nix-channel --update
-RUN nix-env -iA nixpkgs.go
+FROM --platform=linux/amd64 golang:latest
 
 RUN go work init
 COPY . /src/github.com/mikerybka/reverseproxy
