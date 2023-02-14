@@ -1,11 +1,14 @@
 package main
 
+// reverseproxy implements HTTPS termination and reverse proxying to localhost ports.
+// It reads /etc/reverseproxy/hosts.json to determine which hosts to proxy to which ports.
+// It listens to requests on port 80 and 443.
+
 import (
 	"context"
 	"encoding/json"
-	"flag"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httputil"
 	"os"
@@ -16,22 +19,35 @@ import (
 	"golang.org/x/crypto/acme/autocert"
 )
 
+const workdir = "/etc/reverseproxy"
+const configCooldown = 5 * time.Second
+
 func main() {
-	flag.Parse()
-	configfile := "/etc/reverseproxy/config.json"
-	certdir := "/etc/ssl/certs"
-	logdir := "/var/log/reverseproxy"
+	logdir := filepath.Join(workdir, "logs")
+	err := os.MkdirAll(logdir, os.ModePerm)
+	if err != nil {
+		panic(err)
+	}
+	certdir := filepath.Join(workdir, "certs")
+	err = os.MkdirAll(certdir, os.ModePerm)
+	if err != nil {
+		panic(err)
+	}
+	hostsfile := filepath.Join(workdir, "hosts.json")
 	email := os.Getenv("EMAIL")
 	h := &handler{
-		configfile: configfile,
-		logdir:     logdir,
+		hostsfile: hostsfile,
+		logdir:    logdir,
 	}
 	manager := autocert.Manager{
 		Prompt: autocert.AcceptTOS,
 		Cache:  autocert.DirCache(certdir),
 		HostPolicy: func(_ context.Context, host string) error {
-			h.readConfig()
-			_, ok := h.config[host]
+			h.readHosts()
+			if err != nil {
+				panic(err)
+			}
+			_, ok := h.hosts[host]
 			if ok {
 				return nil
 			}
@@ -40,44 +56,37 @@ func main() {
 		Email: email,
 	}
 	l := manager.Listener()
-	err := http.Serve(l, h)
+	err = http.Serve(l, h)
 	panic(err)
 }
 
 type handler struct {
-	configfile     string
-	logdir         string
-	config         map[string]string
-	configLastRead time.Time
+	hostsfile     string
+	logdir        string
+	hosts         map[string]string
+	hostsLastRead time.Time
 }
 
-// readConfig reads the config file and stores it in h.config.
-// If the config file has been read in the last 5 seconds, it
+// readHosts reads the hosts file and stores it in h.hosts.
+// If the hosts file has been read in the last 5 seconds, it
 // does not read it again.
-func (h *handler) readConfig() error {
+func (h *handler) readHosts() {
 	now := time.Now()
-	if now.Sub(h.configLastRead) < 5*time.Second {
-		return nil
-	}
-	data, err := os.ReadFile(h.configfile)
-	if err != nil {
-		return err
-	}
-	err = json.Unmarshal(data, &h.config)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	logRequest(r, h.logdir)
-	err := h.readConfig()
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	if now.Sub(h.hostsLastRead) < configCooldown {
 		return
 	}
-	backendPort, ok := h.config[r.Host]
+	data, _ := os.ReadFile(h.hostsfile)
+	json.Unmarshal(data, &h.hosts)
+}
+
+// ServeHTTP implements http.Handler.
+// It simply proxies requests to the localhost port specified in the hosts file.
+// The hosts file will not be read more than once every 5 seconds.
+// If the host is not found in the hosts file, it returns a 404.
+func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	logRequest(r, h.logdir)
+	h.readHosts()
+	backendPort, ok := h.hosts[r.Host]
 	if !ok {
 		http.NotFound(w, r)
 		return
@@ -92,7 +101,7 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 type RequestLog struct {
-	FromIP  string              `json:"from_ip"`
+	IP      string              `json:"ip"`
 	Method  string              `json:"method"`
 	Host    string              `json:"host"`
 	Path    string              `json:"path"`
@@ -102,12 +111,12 @@ type RequestLog struct {
 }
 
 func logRequest(r *http.Request, logdir string) error {
-	body, err := ioutil.ReadAll(r.Body)
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		panic(err)
 	}
 	l := RequestLog{
-		FromIP:  r.RemoteAddr,
+		IP:      r.RemoteAddr,
 		Method:  r.Method,
 		Host:    r.Host,
 		Path:    r.URL.Path,
@@ -120,13 +129,6 @@ func logRequest(r *http.Request, logdir string) error {
 		return err
 	}
 	timestamp := time.Now().UnixNano()
-	var logFile string
-	for {
-		logFile = filepath.Join(logdir, strconv.Itoa(int(timestamp)))
-		if _, err := os.Stat(logFile); os.IsNotExist(err) {
-			break
-		}
-		timestamp++
-	}
+	logFile := filepath.Join(logdir, strconv.Itoa(int(timestamp)))
 	return os.WriteFile(logFile, b, os.ModePerm)
 }
