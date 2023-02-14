@@ -16,6 +16,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/mikerybka/reverseproxy/pkg/web"
 	"golang.org/x/crypto/acme/autocert"
 )
 
@@ -56,8 +57,14 @@ func main() {
 		Email: email,
 	}
 	l := manager.Listener()
-	err = http.Serve(l, h)
-	panic(err)
+	go func() {
+		err = http.Serve(l, h)
+		panic(err)
+	}()
+	err = http.ListenAndServe(":80", manager.HTTPHandler(nil))
+	if err != nil {
+		panic(err)
+	}
 }
 
 type handler struct {
@@ -100,22 +107,12 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	proxy.ServeHTTP(w, r)
 }
 
-type RequestLog struct {
-	IP      string              `json:"ip"`
-	Method  string              `json:"method"`
-	Host    string              `json:"host"`
-	Path    string              `json:"path"`
-	Query   map[string][]string `json:"query"`
-	Headers map[string][]string `json:"headers"`
-	Body    []byte              `json:"body"`
-}
-
 func logRequest(r *http.Request, logdir string) error {
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		panic(err)
 	}
-	l := RequestLog{
+	l := web.Request{
 		IP:      r.RemoteAddr,
 		Method:  r.Method,
 		Host:    r.Host,
