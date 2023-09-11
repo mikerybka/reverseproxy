@@ -5,9 +5,7 @@ package main
 // It listens to requests on port 80 and 443.
 
 import (
-	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"net/http/httputil"
@@ -17,11 +15,10 @@ import (
 	"time"
 
 	"github.com/mikerybka/reverseproxy/pkg/web"
-	"golang.org/x/crypto/acme/autocert"
+	"github.com/mikerybka/util"
 )
 
 const workdir = "/etc/reverseproxy"
-const configCooldown = 5 * time.Second
 
 func main() {
 	logdir := filepath.Join(workdir, "logs")
@@ -40,50 +37,29 @@ func main() {
 		hostsfile: hostsfile,
 		logdir:    logdir,
 	}
-	manager := autocert.Manager{
-		Prompt: autocert.AcceptTOS,
-		Cache:  autocert.DirCache(certdir),
-		HostPolicy: func(_ context.Context, host string) error {
-			h.readHosts()
-			if err != nil {
-				panic(err)
-			}
-			_, ok := h.hosts[host]
-			if ok {
-				return nil
-			}
-			return fmt.Errorf("host %q not allowed", host)
-		},
-		Email: email,
-	}
-	l := manager.Listener()
-	go func() {
-		err = http.Serve(l, h)
-		panic(err)
-	}()
-	err = http.ListenAndServe(":80", manager.HTTPHandler(nil))
+	err = util.ServeHTTPS(h, email, certdir)
 	if err != nil {
 		panic(err)
 	}
 }
 
 type handler struct {
-	hostsfile     string
-	logdir        string
-	hosts         map[string]string
-	hostsLastRead time.Time
+	hostsfile string
+	logdir    string
 }
 
-// readHosts reads the hosts file and stores it in h.hosts.
-// If the hosts file has been read in the last 5 seconds, it
-// does not read it again.
-func (h *handler) readHosts() {
-	now := time.Now()
-	if now.Sub(h.hostsLastRead) < configCooldown {
-		return
+func hosts() map[string]string {
+	path := "/etc/reverseproxy/hosts.json"
+	data, err := os.ReadFile(path)
+	if err != nil {
+		panic(err)
 	}
-	data, _ := os.ReadFile(h.hostsfile)
-	json.Unmarshal(data, &h.hosts)
+	var hosts map[string]string
+	err = json.Unmarshal(data, &hosts)
+	if err != nil {
+		panic(err)
+	}
+	return hosts
 }
 
 // ServeHTTP implements http.Handler.
@@ -92,8 +68,7 @@ func (h *handler) readHosts() {
 // If the host is not found in the hosts file, it returns a 404.
 func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	logRequest(r, h.logdir)
-	h.readHosts()
-	backendPort, ok := h.hosts[r.Host]
+	backendPort, ok := hosts()[r.Host]
 	if !ok {
 		http.NotFound(w, r)
 		return
