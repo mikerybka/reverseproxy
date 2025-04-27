@@ -18,7 +18,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			panic(err)
 		}
-		http.Handle(k, httputil.NewSingleHostReverseProxy(u))
+		mux.Handle(k, httputil.NewSingleHostReverseProxy(u))
 	}
 	mux.Handle("/", s.NotFound)
 	mux.ServeHTTP(w, r)
